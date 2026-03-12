@@ -264,22 +264,28 @@ async function selectDate(dateStr) {
   currentEntries = [];
   updateCount(0);
 
-  const payload = await loadData(dateStr);
-  setLoading(false);
+  try {
+    const payload = await loadData(dateStr);
 
-  if (!payload || !Array.isArray(payload.farmacie) || payload.farmacie.length === 0) {
-    setNoData(true, `
-      <p><strong>Nessun dato disponibile</strong> per questa data.</p>
-      <p>I dati vengono aggiornati automaticamente ogni giorno. Riprova domani.</p>
-    `);
-    return;
-  }
+    if (!payload || !Array.isArray(payload.farmacie) || payload.farmacie.length === 0) {
+      setNoData(true, `
+        <p><strong>Nessun dato disponibile</strong> per questa data.</p>
+        <p>I dati vengono aggiornati automaticamente ogni giorno. Riprova domani.</p>
+      `);
+      return;
+    }
 
-  renderPharmacies(payload.farmacie, userLatLng?.lat, userLatLng?.lng);
+    renderPharmacies(payload.farmacie, userLatLng?.lat, userLatLng?.lng);
 
-  // If user location is known, highlight nearest
-  if (userLatLng) {
-    highlightNearest(userLatLng.lat, userLatLng.lng);
+    // If user location is known, highlight nearest
+    if (userLatLng) {
+      highlightNearest(userLatLng.lat, userLatLng.lng);
+    }
+  } catch (e) {
+    console.error('Errore durante il caricamento della data', dateStr, e);
+    setNoData(true, '<p><strong>Errore di rete.</strong> Ricarica la pagina.</p>');
+  } finally {
+    setLoading(false);
   }
 }
 
@@ -393,8 +399,11 @@ function addDays(d, n) {
 
 // ── Bootstrap the app ────────────────────────────────────────────
 async function init() {
-  initMap();
-  setLoading(true);
+  // Insert no-data message container (must exist before any setNoData call)
+  const mapContainer = document.getElementById('map-container');
+  const noDataEl = document.createElement('div');
+  noDataEl.id = 'no-data-msg';
+  mapContainer.appendChild(noDataEl);
 
   // Wire up buttons
   document.getElementById('near-me-btn').addEventListener('click', handleNearMe);
@@ -403,26 +412,37 @@ async function init() {
     if (e.key === 'Enter') handleSearch();
   });
 
-  // Insert no-data message container into map container
-  const mapContainer = document.getElementById('map-container');
-  const noDataEl = document.createElement('div');
-  noDataEl.id = 'no-data-msg';
-  mapContainer.appendChild(noDataEl);
-
-  // Load index of available dates
-  const index = await loadIndex();
-  let dates = index?.dates ?? [];
-
-  // Fallback to sample data if no real data exists yet
-  if (!dates.length) {
-    dates = ['sample'];
+  try {
+    initMap();
+  } catch (e) {
+    console.error('Errore durante l\'inizializzazione della mappa:', e);
+    setLoading(false);
+    setNoData(true, '<p><strong>Errore:</strong> impossibile caricare la mappa. Ricarica la pagina.</p>');
+    return;
   }
 
-  setLoading(false);
-  buildDayPicker(dates);
+  setLoading(true);
 
-  // Auto-select the first (most recent) date
-  if (dates.length) await selectDate(dates[0]);
+  try {
+    // Load index of available dates
+    const index = await loadIndex();
+    let dates = index?.dates ?? [];
+
+    // Fallback to sample data if no real data exists yet
+    if (!dates.length) {
+      dates = ['sample'];
+    }
+
+    buildDayPicker(dates);
+
+    // Auto-select the first (most recent) date
+    if (dates.length) await selectDate(dates[0]);
+  } catch (e) {
+    console.error('Errore durante il caricamento dei dati:', e);
+    setNoData(true, '<p><strong>Errore di rete.</strong> Ricarica la pagina.</p>');
+  } finally {
+    setLoading(false);
+  }
 }
 
 init();
