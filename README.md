@@ -7,9 +7,10 @@ Seleziona il giorno, cerca per indirizzo, o usa la tua posizione GPS per trovare
 
 ## Come funziona
 
-1. Ogni giorno alle 06:10 un processo automatico scarica i turni delle farmacie dal sito [farmaciediturno.org](https://www.farmaciediturno.org) e li salva come file di dati nel repository.
-2. Il sito web (pubblicato tramite GitHub Pages) legge questi file e mostra i risultati sulla mappa.
-3. Non hai bisogno di toccare nulla: una volta configurato, si aggiorna da solo ogni giorno.
+1. Ogni giorno alle 06:10 un processo automatico legge la lista delle farmacie di turno a Milano dalla pagina pubblica di [farmaciediturno.org](https://www.farmaciediturno.org/comune.asp?cod=15146) e la salva come file di dati nel repository.
+2. Gli indirizzi vengono convertiti in coordinate GPS tramite OpenStreetMap (gratuito).
+3. Il sito web (pubblicato tramite GitHub Pages) legge questi file e mostra i risultati sulla mappa.
+4. Non hai bisogno di registrarti da nessuna parte: una volta configurato, si aggiorna da solo ogni giorno.
 
 ---
 
@@ -19,30 +20,7 @@ Segui questi passaggi nell'ordine indicato.
 
 ---
 
-### Passo 1 — Ottieni la chiave API gratuita
-
-I dati delle farmacie vengono forniti da **farmaciediturno.org** tramite un'API gratuita.
-
-1. Invia una e-mail a **info@farmaciediturno.org**
-2. Indica il tuo nome e che vuoi usare l'API per una mappa personale delle farmacie di turno a Milano
-3. Riceverai una chiave (una stringa di testo) via e-mail
-4. Conserva questa chiave: ti servirà nel passo successivo
-
----
-
-### Passo 2 — Aggiungi la chiave API come segreto su GitHub
-
-1. Apri questo repository su GitHub
-2. Clicca sulla scheda **Settings** (in alto)
-3. Nel menu di sinistra, clicca **Secrets and variables** → **Actions**
-4. Clicca il pulsante verde **New repository secret**
-5. Nel campo **Name** scrivi esattamente: `FARMACIEDITURNO_API_KEY`
-6. Nel campo **Secret** incolla la chiave che hai ricevuto per e-mail
-7. Clicca **Add secret**
-
----
-
-### Passo 3 — Attiva GitHub Pages
+### Passo 1 — Attiva GitHub Pages
 
 1. Apri questo repository su GitHub
 2. Clicca sulla scheda **Settings**
@@ -54,7 +32,7 @@ I dati delle farmacie vengono forniti da **farmaciediturno.org** tramite un'API 
 
 ---
 
-### Passo 4 — Esegui il primo aggiornamento manuale
+### Passo 2 — Esegui il primo aggiornamento manuale
 
 Il processo automatico si avvierà ogni giorno alle 06:10, ma puoi avviarlo subito per vedere subito i dati reali sulla mappa:
 

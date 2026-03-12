@@ -2,164 +2,180 @@
 """
 fetch_farmacie.py
 ─────────────────
-Fetches "farmacie di turno" data for Milan from the farmaciediturno.org API
-and stores one JSON file per day in the data/ directory.
+Scarica la lista delle farmacie di turno a Milano dalla pagina pubblica
+di farmaciediturno.org, geocodifica gli indirizzi con Nominatim (OpenStreetMap)
+e salva i risultati in data/farmacie-YYYY-MM-DD.json.
 
-Environment variable required:
-  FARMACIEDITURNO_API_KEY  — your API key from farmaciediturno.org
-
-How to get a key: send an e-mail to info@farmaciediturno.org
-stating your name and intended use.
+Non richiede nessuna chiave API.
 """
 
 import json
 import os
-import sys
-from datetime import datetime, timedelta, timezone
+import re
+import time
+from datetime import datetime, timezone
 
 import requests
+from bs4 import BeautifulSoup
 
-# ── Configuration ────────────────────────────────────────────────
-API_KEY  = os.environ.get("FARMACIEDITURNO_API_KEY", "").strip()
-BASE_URL = "https://api.farmaciediturno.org/aperteturno.asp"
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+# ── Configurazione ───────────────────────────────────────────────
+SOURCE_URL   = "https://www.farmaciediturno.org/comune.asp?cod=15146"
+NOMINATIM    = "https://nominatim.openstreetmap.org/search"
+DATA_DIR     = os.path.join(os.path.dirname(__file__), "..", "data")
+CACHE_FILE   = os.path.join(DATA_DIR, "geocoding_cache.json")
 
-# Multiple points spread across Milan so we collect more pharmacies.
-# The API returns the 20 nearest to the given coordinates, so using
-# several reference points gives broader coverage.
-MILAN_POINTS = [
-    {"name": "Centro",        "lat": 45.4654, "lon": 9.1860},
-    {"name": "Nord",          "lat": 45.5060, "lon": 9.1900},
-    {"name": "Sud",           "lat": 45.4190, "lon": 9.1900},
-    {"name": "Est",           "lat": 45.4654, "lon": 9.2400},
-    {"name": "Ovest",         "lat": 45.4654, "lon": 9.1280},
-    {"name": "Nord-Est",      "lat": 45.4960, "lon": 9.2300},
-    {"name": "Sud-Ovest",     "lat": 45.4350, "lon": 9.1500},
-]
+HEADERS = {
+    # Un User-Agent standard da browser è sufficiente per leggere pagine pubbliche
+    "User-Agent": (
+        "Mozilla/5.0 (compatible; FarmacieMilanoMap/1.0; "
+        "personal non-commercial use)"
+    ),
+    "Accept-Language": "it-IT,it;q=0.9",
+}
 
-# How many future days to fetch (today = 0, tomorrow = 1, …)
-DAYS_AHEAD = 7
+# ── Carica / salva la cache delle coordinate ─────────────────────
+def load_cache() -> dict:
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
+def save_cache(cache: dict) -> None:
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, indent=2)
 
-def fetch_for_point(giorno: int, lat: float, lon: float) -> list:
-    """Call the API for one reference point and one day offset."""
-    params = {
-        "key":    API_KEY,
-        "output": "json",
-        "lat":    lat,
-        "lon":    lon,
-        "filtro": "milano",
-        "giorno": giorno,
-    }
-    resp = requests.get(BASE_URL, params=params, timeout=15)
+# ── Scarica e analizza la pagina HTML ────────────────────────────
+def scrape_farmacie() -> list[dict]:
+    print(f"Scaricamento da: {SOURCE_URL}")
+    resp = requests.get(SOURCE_URL, headers=HEADERS, timeout=20)
     resp.raise_for_status()
-    data = resp.json()
+    resp.encoding = resp.apparent_encoding or "utf-8"
 
-    # The API wraps results in a "farmacie" key; field names vary
-    raw = data.get("farmacie") or data.get("results") or []
-    return raw
+    soup = BeautifulSoup(resp.text, "html.parser")
+    farmacie = []
 
+    # Cerca tutte le righe di tabella con dati di farmacia
+    for row in soup.find_all("tr"):
+        cells = row.find_all("td")
+        if len(cells) < 2:
+            continue
 
-def normalise(raw: dict) -> dict | None:
-    """Map raw API fields to a consistent structure."""
-    lat = raw.get("lat") or raw.get("latitude") or ""
-    lon = raw.get("lon") or raw.get("longitude") or raw.get("lng") or ""
+        testo = [c.get_text(" ", strip=True) for c in cells]
 
+        # La riga di intestazione o righe vuote vengono saltate
+        if not testo[0] or testo[0].lower() in ("farmacia", "nome", "denominazione"):
+            continue
+
+        nome     = testo[0] if len(testo) > 0 else ""
+        indirizzo = testo[1] if len(testo) > 1 else ""
+        telefono = ""
+        orario   = ""
+
+        # Cerca telefono (pattern: cifre, spazi, trattini)
+        for cella in testo[2:]:
+            if re.search(r"\d[\d\s\-/]{5,}", cella) and not telefono:
+                telefono = cella.strip()
+            elif re.search(r"\d{1,2}[:\.]?\d{2}", cella) and not orario:
+                orario = cella.strip()
+
+        if nome and indirizzo:
+            farmacie.append({
+                "nome":      nome,
+                "indirizzo": indirizzo,
+                "telefono":  telefono,
+                "orario":    orario,
+            })
+
+    print(f"  Trovate {len(farmacie)} farmacie nella pagina.")
+    return farmacie
+
+# ── Geocodifica un indirizzo con Nominatim ───────────────────────
+def geocode(indirizzo: str, cache: dict) -> tuple[float, float] | tuple[None, None]:
+    # Usa la cache per evitare chiamate ripetute
+    chiave = indirizzo.lower().strip()
+    if chiave in cache:
+        return cache[chiave]["lat"], cache[chiave]["lon"]
+
+    query = f"{indirizzo}, Milano, Italia"
     try:
-        lat_f = float(lat)
-        lon_f = float(lon)
-    except (ValueError, TypeError):
-        return None  # skip entries without coordinates
+        resp = requests.get(
+            NOMINATIM,
+            params={"q": query, "format": "json", "limit": 1},
+            headers=HEADERS,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        risultati = resp.json()
+        if risultati:
+            lat = float(risultati[0]["lat"])
+            lon = float(risultati[0]["lon"])
+            cache[chiave] = {"lat": lat, "lon": lon}
+            return lat, lon
+    except Exception as e:
+        print(f"  Geocoding fallito per '{indirizzo}': {e}")
 
-    nome    = raw.get("nome") or raw.get("denominazione") or raw.get("name") or ""
-    via     = raw.get("indirizzo") or raw.get("via") or raw.get("address") or ""
-    comune  = raw.get("comune") or raw.get("localita") or raw.get("city") or "Milano"
-    tel     = raw.get("telefono") or raw.get("phone") or ""
-    orario  = raw.get("orario") or raw.get("orari") or raw.get("hours") or ""
+    # Nominatim ha un limite di 1 richiesta al secondo — rispettiamolo
+    time.sleep(1.1)
+    return None, None
 
-    # Build a clean address string
-    if comune.lower() not in via.lower():
-        indirizzo = f"{via}, {comune}"
-    else:
-        indirizzo = via
-
-    return {
-        "nome":      nome.strip(),
-        "indirizzo": indirizzo.strip(),
-        "telefono":  tel.strip(),
-        "orario":    orario.strip(),
-        "lat":       lat_f,
-        "lon":       lon_f,
-    }
-
-
-def fetch_day(giorno: int) -> list:
-    """Fetch and deduplicate all farmacie for a given day offset."""
-    seen: dict[str, dict] = {}  # keyed by "nome|indirizzo" to deduplicate
-
-    for point in MILAN_POINTS:
-        try:
-            raw_list = fetch_for_point(giorno, point["lat"], point["lon"])
-        except Exception as exc:
-            print(f"  Warning: could not fetch from {point['name']}: {exc}", file=sys.stderr)
-            continue
-
-        for raw in raw_list:
-            entry = normalise(raw)
-            if not entry:
-                continue
-            key = f"{entry['nome'].lower()}|{entry['indirizzo'].lower()}"
-            if key not in seen:
-                seen[key] = entry
-
-    return list(seen.values())
-
-
+# ── Main ─────────────────────────────────────────────────────────
 def main():
-    if not API_KEY:
-        print("ERROR: FARMACIEDITURNO_API_KEY environment variable is not set.", file=sys.stderr)
-        print("Request a free key from info@farmaciediturno.org", file=sys.stderr)
-        sys.exit(1)
-
     os.makedirs(DATA_DIR, exist_ok=True)
+    cache = load_cache()
 
-    today     = datetime.now(timezone.utc).date()
-    saved_dates: list[str] = []
+    # Scarica la lista di oggi
+    farmacie_raw = scrape_farmacie()
+    if not farmacie_raw:
+        print("Nessuna farmacia trovata. Controlla se il sito ha cambiato struttura.")
+        return
 
-    for offset in range(DAYS_AHEAD + 1):
-        date     = today + timedelta(days=offset)
-        date_str = date.isoformat()
+    # Geocodifica ogni farmacia
+    print("Geocodifica degli indirizzi in corso...")
+    farmacie = []
+    for f in farmacie_raw:
+        lat, lon = geocode(f["indirizzo"], cache)
+        time.sleep(1.1)  # rispetta il rate limit di Nominatim
 
-        print(f"Fetching data for {date_str} (giorno={offset})…")
-        farmacie = fetch_day(offset)
-
-        if not farmacie:
-            print(f"  No data returned for {date_str} — skipping.")
+        if lat is None:
+            print(f"  SKIP (no coordinate): {f['nome']} — {f['indirizzo']}")
             continue
 
-        payload = {
-            "date":       date_str,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "farmacie":   farmacie,
-        }
+        farmacie.append({**f, "lat": lat, "lon": lon})
 
-        out_path = os.path.join(DATA_DIR, f"farmacie-{date_str}.json")
-        with open(out_path, "w", encoding="utf-8") as fh:
-            json.dump(payload, fh, ensure_ascii=False, indent=2)
+    save_cache(cache)
+    print(f"  {len(farmacie)} farmacie geocodificate su {len(farmacie_raw)}.")
 
-        saved_dates.append(date_str)
-        print(f"  Saved {len(farmacie)} farmacie → {out_path}")
-
-    # Write index so the website knows which dates are available
-    index = {
+    # Salva il file del giorno
+    today_str = datetime.now(timezone.utc).date().isoformat()
+    payload = {
+        "date":       today_str,
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "dates":      saved_dates,
+        "farmacie":   farmacie,
     }
-    index_path = os.path.join(DATA_DIR, "index.json")
-    with open(index_path, "w") as fh:
-        json.dump(index, fh, indent=2)
+    out_path = os.path.join(DATA_DIR, f"farmacie-{today_str}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    print(f"  Salvato: {out_path}")
 
-    print(f"\nDone. {len(saved_dates)} date(s) saved.")
+    # Aggiorna l'indice delle date disponibili
+    index_path = os.path.join(DATA_DIR, "index.json")
+    index = {"dates": [], "updated_at": ""}
+    if os.path.exists(index_path):
+        with open(index_path) as f:
+            index = json.load(f)
+
+    if today_str not in index["dates"]:
+        index["dates"].append(today_str)
+        index["dates"].sort(reverse=True)   # più recente prima
+
+    # Mantieni solo gli ultimi 30 giorni nell'indice
+    index["dates"] = index["dates"][:30]
+    index["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    with open(index_path, "w") as f:
+        json.dump(index, f, indent=2)
+
+    print(f"\nFatto. Date disponibili: {', '.join(index['dates'])}")
 
 
 if __name__ == "__main__":
