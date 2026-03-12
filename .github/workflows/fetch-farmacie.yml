@@ -1,0 +1,55 @@
+name: Aggiorna Farmacie di Turno
+
+# When does this job run?
+# 1. Every day at 06:10 Milan time (05:10 UTC in winter, 04:10 UTC in summer)
+# 2. When you push to the main branch
+# 3. When you trigger it manually from the GitHub "Actions" tab
+on:
+  schedule:
+    - cron: '10 5 * * *'   # 05:10 UTC ≈ 06:10 CET / 07:10 CEST
+  push:
+    branches: [main]
+  workflow_dispatch:        # manual trigger
+
+jobs:
+  fetch-and-commit:
+    name: Scarica i dati e aggiorna la mappa
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # needed to commit back to the repo
+
+    steps:
+      # 1 ── Check out the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2 ── Set up Python
+      - name: Configura Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3 ── Install the only dependency (requests)
+      - name: Installa dipendenze
+        run: pip install requests
+
+      # 4 ── Run the fetch script
+      #      The API key is stored in Settings > Secrets > Actions
+      #      (see README for instructions on how to add it)
+      - name: Scarica i dati delle farmacie
+        env:
+          FARMACIEDITURNO_API_KEY: ${{ secrets.FARMACIEDITURNO_API_KEY }}
+        run: python scripts/fetch_farmacie.py
+
+      # 5 ── Commit and push the updated JSON files
+      - name: Salva i dati aggiornati
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "Nessuna modifica nei dati — niente da committare."
+          else
+            git commit -m "dati: aggiornamento farmacie di turno $(date -u +'%Y-%m-%d')"
+            git push
+          fi

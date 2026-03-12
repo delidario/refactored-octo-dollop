@@ -1,0 +1,126 @@
+{
+  "date": "sample",
+  "note": "Dati di esempio. I dati reali vengono caricati automaticamente ogni giorno.",
+  "farmacie": [
+    {
+      "nome": "Farmacia del Duomo",
+      "indirizzo": "Piazza del Duomo 1, Milano",
+      "telefono": "02 8646 0741",
+      "lat": 45.4641,
+      "lon": 9.1919,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Brera",
+      "indirizzo": "Via Brera 16, Milano",
+      "telefono": "02 8646 1234",
+      "lat": 45.4722,
+      "lon": 9.1872,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Navigli",
+      "indirizzo": "Via Naviglio Grande 44, Milano",
+      "telefono": "02 8940 2211",
+      "lat": 45.4502,
+      "lon": 9.1745,
+      "orario": "09:00 - 21:00"
+    },
+    {
+      "nome": "Farmacia Garibaldi",
+      "indirizzo": "Corso Garibaldi 82, Milano",
+      "telefono": "02 6595 1020",
+      "lat": 45.4817,
+      "lon": 9.1874,
+      "orario": "08:00 - 22:00"
+    },
+    {
+      "nome": "Farmacia Buenos Aires",
+      "indirizzo": "Corso Buenos Aires 15, Milano",
+      "telefono": "02 2951 1820",
+      "lat": 45.4765,
+      "lon": 9.2081,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Porta Romana",
+      "indirizzo": "Corso di Porta Romana 120, Milano",
+      "telefono": "02 5831 5523",
+      "lat": 45.4520,
+      "lon": 9.1997,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Loreto",
+      "indirizzo": "Piazzale Loreto 8, Milano",
+      "telefono": "02 2826 0933",
+      "lat": 45.4837,
+      "lon": 9.2222,
+      "orario": "09:00 - 20:00"
+    },
+    {
+      "nome": "Farmacia Sempione",
+      "indirizzo": "Via Sempione 14, Milano",
+      "telefono": "02 3490 1177",
+      "lat": 45.4789,
+      "lon": 9.1710,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Isola",
+      "indirizzo": "Via Pollaiuolo 3, Milano",
+      "telefono": "02 6680 8844",
+      "lat": 45.4912,
+      "lon": 9.1938,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Porta Venezia",
+      "indirizzo": "Corso Venezia 50, Milano",
+      "telefono": "02 7600 1564",
+      "lat": 45.4698,
+      "lon": 9.2041,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Famagosta",
+      "indirizzo": "Via Lodovico il Moro 119, Milano",
+      "telefono": "02 8910 3344",
+      "lat": 45.4327,
+      "lon": 9.1594,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Bicocca",
+      "indirizzo": "Viale Sarca 200, Milano",
+      "telefono": "02 6620 1100",
+      "lat": 45.5109,
+      "lon": 9.2173,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Solari",
+      "indirizzo": "Via Solari 40, Milano",
+      "telefono": "02 4816 2233",
+      "lat": 45.4558,
+      "lon": 9.1672,
+      "orario": "09:00 - 21:00"
+    },
+    {
+      "nome": "Farmacia Città Studi",
+      "indirizzo": "Via Ponzio 22, Milano",
+      "telefono": "02 7063 3920",
+      "lat": 45.4751,
+      "lon": 9.2298,
+      "orario": "08:30 - 20:00"
+    },
+    {
+      "nome": "Farmacia Precotto",
+      "indirizzo": "Via Astesani 18, Milano",
+      "telefono": "02 6472 8810",
+      "lat": 45.5068,
+      "lon": 9.2048,
+      "orario": "08:30 - 20:00"
+    }
+  ]
+}
