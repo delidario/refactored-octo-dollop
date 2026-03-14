@@ -1,0 +1,14 @@
+{
+  "date": "2026-03-14",
+  "updated_at": "2026-03-14T07:25:38.858933+00:00",
+  "farmacie": [
+    {
+      "nome": "info@farmaciediturno.org",
+      "indirizzo": "segreteria",
+      "telefono": "",
+      "orario": "",
+      "lat": 45.4766795,
+      "lon": 9.2325393
+    }
+  ]
+}
